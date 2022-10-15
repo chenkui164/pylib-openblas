@@ -15,6 +15,7 @@ import glob
 
 OpenBLASVersion = '0.3.20'
 name = 'pylib_openblas'
+des = "Python packaging of OpenBLAS {version}".format(version=OpenBLASVersion)
 
 
 class MyBuildCLib(build_clib):
@@ -70,12 +71,13 @@ class MyBuildCLib(build_clib):
         os.chdir(cwd)
 
 setup(name=name,
-      version=OpenBLASVersion,
+      version='0.0.1',
       packages=[name],
       libraries=[(name, {'sources': []})],
-      description='Python packaging of OpenBLAS',
+      description=des,
       long_description='Binary distribution of OpenBLAS static libraries',
       author='chenkui164',
       ext_modules=[Extension("pylib_openblas.placeholder", ['pylib_openblas/placeholder.c'])],
-      cmdclass={'build_clib': MyBuildCLib,'bdist_wheel': bdist_wheel})
+      cmdclass={'build_clib': MyBuildCLib,'bdist_wheel': bdist_wheel},
+      options={'bdist_wheel':{'universal':True}})
 
