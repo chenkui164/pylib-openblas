@@ -44,16 +44,30 @@ class MyBuildCLib(build_clib):
             os.chdir(self.build_temp)
             guess_libplat = glob.glob(os.path.join(cwd, 'build', 'lib*'))[0]
             install_prefix = os.path.join(guess_libplat, 'pylib_openblas')
+            import platform
+            if platform.machine() == "aarch64":
+                cmake_cmd = ["cmake",
+                             '-DTARGET=ARMV8',
+                             '-DCMAKE_BUILD_TYPE=Release',
+                             '-DDYNAMIC_ARCH=1',
+                             '-DNOFORTRAN=1',
+                             '-DNO_LAPACK=1',
+                             '-DBUILD_SHARED_LIBS=OFF',
+                             os.path.join(
+                                 cwd, 'OpenBLAS-{version}'.format(version=OpenBLASVersion)),
+                             "-DCMAKE_INSTALL_PREFIX=" + install_prefix]
+            else:
+                cmake_cmd = ["cmake",
+                             '-DCMAKE_BUILD_TYPE=Release',
+                             '-DDYNAMIC_ARCH=1',
+                             '-DNOFORTRAN=1',
+                             '-DNO_LAPACK=1',
+                             '-DBUILD_SHARED_LIBS=OFF',
+                             os.path.join(
+                                 cwd, 'OpenBLAS-{version}'.format(version=OpenBLASVersion)),
+                             "-DCMAKE_INSTALL_PREFIX=" + install_prefix]
 
-            subprocess.check_call(["cmake",
-                                   '-DCMAKE_BUILD_TYPE=Release',
-                                   '-DDYNAMIC_ARCH=1',
-                                   '-DNOFORTRAN=1',
-                                   '-DNO_LAPACK=1',
-                                   '-DBUILD_SHARED_LIBS=OFF',
-                                   os.path.join(
-                                       cwd, 'OpenBLAS-{version}'.format(version=OpenBLASVersion)),
-                                   "-DCMAKE_INSTALL_PREFIX=" + install_prefix])
+            subprocess.check_call(cmake_cmd)
             subprocess.check_call(['make', '-j2'])
             subprocess.check_call(
                 ["cmake", "--build", '.', '--target', 'install'])
