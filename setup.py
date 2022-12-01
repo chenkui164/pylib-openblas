@@ -9,6 +9,7 @@ class bdist_wheel(bdist_wheel_):
         _, _, plat_name = bdist_wheel_.get_tag(self)
         return 'py2.py3', 'none', plat_name
 
+
 from sys import platform
 from shutil import copyfile, copytree
 import glob
@@ -20,64 +21,139 @@ des = "Python packaging of OpenBLAS {version}".format(version=OpenBLASVersion)
 
 class MyBuildCLib(build_clib):
     def run(self):
-        try:
-            import urllib.request as request
-        except ImportError:
-            import urllib as request
+        def build4linux():
+            try:
+                import urllib.request as request
+            except ImportError:
+                import urllib as request
 
-        fname = "OpenBLAS-{version}.tar.gz".format(version=OpenBLASVersion)
-        print("Downloading OpenBLAS version {}".format(OpenBLASVersion))
-        request.urlretrieve("https://github.com/xianyi/OpenBLAS/releases/download/v{version}/OpenBLAS-{version}.tar.gz".format(version=OpenBLASVersion), fname)
-        import tarfile
-        print("Extracting OpenBLAS version {}".format(OpenBLASVersion))
-        with tarfile.open(fname, "r:gz") as tar:
-            tar.extractall()
+            fname = "OpenBLAS-{version}.tar.gz".format(version=OpenBLASVersion)
+            print("Downloading OpenBLAS version {}".format(OpenBLASVersion))
+            request.urlretrieve(
+                "https://github.com/xianyi/OpenBLAS/releases/download/v{version}/OpenBLAS-{version}.tar.gz".format(version=OpenBLASVersion), fname)
+            import tarfile
+            print("Extracting OpenBLAS version {}".format(OpenBLASVersion))
+            with tarfile.open(fname, "r:gz") as tar:
+                tar.extractall()
 
-        import subprocess
-        print("Building OpenBLAS version {}".format(OpenBLASVersion))
-        dynamic_arch = int(platform != "win32")
-        if platform == "win32":
-            dynamic_arch = 0
-            builder = ["cmake", "--build", '.']
-        else:
-            dynamic_arch = 1
-            builder = ['make', '-j2']
-
-        try:
+            import subprocess
+            print("Building OpenBLAS version {}".format(OpenBLASVersion))
             os.makedirs(self.build_temp)
-        except OSError:
-            pass
 
-        cwd = os.getcwd()
-        os.chdir(self.build_temp)
-        # this is clumsy <3
-        guess_libplat = glob.glob(os.path.join(cwd, 'build', 'lib*'))[0]
-        install_prefix = os.path.join(guess_libplat, 'pylib_openblas')
-        subprocess.check_call(["cmake",
-                               '-DCMAKE_BUILD_TYPE=Release',
-                               '-DDYNAMIC_ARCH=1',
-                               '-DNOFORTRAN=1',
-                               '-DNO_LAPACK=1',
-                               '-DBUILD_SHARED_LIBS=OFF',
-                               os.path.join(cwd, 'OpenBLAS-{version}'.format(version=OpenBLASVersion)),
-                               "-DCMAKE_INSTALL_PREFIX="+install_prefix])
-        subprocess.check_call(builder)
-        subprocess.check_call(["cmake", "--build", '.', '--target', 'install'])
+            cwd = os.getcwd()
+            os.chdir(self.build_temp)
+            guess_libplat = glob.glob(os.path.join(cwd, 'build', 'lib*'))[0]
+            install_prefix = os.path.join(guess_libplat, 'pylib_openblas')
 
-        guess_libblas = glob.glob(os.path.join(install_prefix, 'lib*', '*openblas*'))[0]
-        target_libblas = guess_libblas.replace('openblas', 'pylib_openblas')
-        copyfile(guess_libblas, os.path.basename(target_libblas))
+            subprocess.check_call(["cmake",
+                                   '-DCMAKE_BUILD_TYPE=Release',
+                                   '-DDYNAMIC_ARCH=1',
+                                   '-DNOFORTRAN=1',
+                                   '-DNO_LAPACK=1',
+                                   '-DBUILD_SHARED_LIBS=OFF',
+                                   os.path.join(
+                                       cwd, 'OpenBLAS-{version}'.format(version=OpenBLASVersion)),
+                                   "-DCMAKE_INSTALL_PREFIX=" + install_prefix])
+            subprocess.check_call("make -j2")
+            subprocess.check_call(
+                ["cmake", "--build", '.', '--target', 'install'])
 
-        os.chdir(cwd)
+            guess_libblas = glob.glob(os.path.join(
+                install_prefix, 'lib*', '*openblas*'))[0]
+            target_libblas = guess_libblas.replace(
+                'openblas', 'pylib_openblas')
+            copyfile(guess_libblas, os.path.basename(target_libblas))
+
+            os.chdir(cwd)
+
+        def build4win():
+            try:
+                import urllib.request as request
+            except ImportError:
+                import urllib as request
+
+            arch = 'x64'
+            import platform
+            if platform.architecture()[0] == '32bit':
+                arch = 'x86'
+
+            fname = "OpenBLAS-{version}-{tarch}".format(
+                version=OpenBLASVersion, tarch=arch)
+
+            fname_zip = fname + ".zip"
+
+            print("Downloading OpenBLAS version {} arch {}".format(
+                OpenBLASVersion, arch))
+            # request.urlretrieve(
+            #     "https://github.com/xianyi/OpenBLAS/releases/download/v{version}/OpenBLAS-{version}-{tarch}.zip".format(version=OpenBLASVersion, tarch=arch), fname_zip)
+
+            # os.makedirs(self.build_temp)
+            cwd = os.getcwd()
+            guess_libplat = glob.glob(os.path.join(cwd, 'build', 'lib*'))[0]
+            install_dir = os.path.join(guess_libplat, 'pylib_openblas')
+            # os.makedirs(install_dir)
+
+            import zipfile
+            print("Extracting OpenBLAS version {}".format(OpenBLASVersion))
+            with zipfile.ZipFile(fname_zip, 'r') as zip_ref:
+                zip_ref.extractall(install_dir)
+
+            # import subprocess
+            # print("Building OpenBLAS version {}".format(OpenBLASVersion))
+            # dynamic_arch = int(platform != "win32")
+            # if platform == "win32":
+            #     dynamic_arch = 0
+            #     builder = ["cmake", "--build", '.']
+            # else:
+            #     dynamic_arch = 1
+            #     builder = ['make', '-j2']
+
+            # try:
+            #     os.makedirs(self.build_temp)
+            # except OSError:
+            #     pass
+
+            # os.chdir(self.build_temp)
+            # # this is clumsy <3
+            # guess_libplat = glob.glob(os.path.join(cwd, 'build', 'lib*'))[0]
+            # install_prefix = os.path.join(guess_libplat, 'pylib_openblas')
+            # subprocess.check_call(["cmake",
+            #                        '-DCMAKE_BUILD_TYPE=Release',
+            #                        '-DDYNAMIC_ARCH=1',
+            #                        '-DNOFORTRAN=1',
+            #                        '-DNO_LAPACK=1',
+            #                        '-DBUILD_SHARED_LIBS=OFF',
+            #                        os.path.join(
+            #                            cwd, 'OpenBLAS-{version}'.format(version=OpenBLASVersion)),
+            #                        "-DCMAKE_INSTALL_PREFIX=" + install_prefix])
+            # subprocess.check_call(builder)
+            # subprocess.check_call(
+            #     ["cmake", "--build", '.', '--target', 'install'])
+
+            guess_libblas = glob.glob(os.path.join(
+                install_dir, 'lib', '*lib*'))[0]
+            print('guess_libblas is {}'.format(guess_libblas))
+            # target_libblas = guess_libblas.replace(
+            #     'openblas', 'pylib_openblas')
+            # copyfile(guess_libblas, os.path.basename(target_libblas))
+            libplacehoder = os.path.join(self.build_temp, "lib" + name + ".a")
+            with open(libplacehoder, 'w') as fp:
+                pass
+
+            print('libplacehoder is {}'.format(libplacehoder))
+
+            # os.chdir(cwd)
+        build4win()
+
 
 setup(name=name,
       version='0.0.1',
       packages=[name],
-      libraries=[(name, {'sources': []})],
+      libraries=[(name, {'sources': ['pylib_openblas/libplacehoder.c']})],
       description=des,
       long_description='Binary distribution of OpenBLAS static libraries',
       author='chenkui164',
-      ext_modules=[Extension("pylib_openblas.placeholder", ['pylib_openblas/placeholder.c'])],
-      cmdclass={'build_clib': MyBuildCLib,'bdist_wheel': bdist_wheel},
-      options={'bdist_wheel':{'universal':True}})
-
+      ext_modules=[Extension("pylib_openblas.placeholder", [
+                             'pylib_openblas/placeholder.c'])],
+      cmdclass={'build_clib': MyBuildCLib, 'bdist_wheel': bdist_wheel},
+      options={'bdist_wheel': {'universal': True}})
