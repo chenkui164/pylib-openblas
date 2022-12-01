@@ -128,7 +128,7 @@ class MyBuildCLib(build_clib):
 
 
 setup(name=name,
-      version='0.0.1',
+      version='0.0.2',
       packages=[name],
       libraries=[(name, {'sources': ['pylib_openblas/libplacehoder.c']})],
       description=des,
